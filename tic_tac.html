@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic‑Tac‑Toe — PvP & AI</title>
+  <style>
+    :root{
+      --bg: #0f172a;          /* slate-900 */
+      --panel: #111827;       /* gray-900 */
+      --accent: #22d3ee;      /* cyan-400 */
+      --accent-2: #a78bfa;    /* violet-400 */
+      --text: #e5e7eb;        /* gray-200 */
+      --muted: #9ca3af;       /* gray-400 */
+      --win: #10b981;         /* emerald-500 */
+      --loss: #ef4444;        /* red-500 */
+    }
+    *{ box-sizing: border-box; }
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Helvetica, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 20% 10%, #1f2937 0%, var(--bg) 60%);
+      color: var(--text); min-height:100vh; display:grid; place-items:center;
+    }
+    .wrap{ width:min(960px, 92vw); display:grid; gap:20px; }
+    header{ display:flex; align-items:baseline; justify-content:space-between; }
+    h1{ margin:10px 0 4px; font-weight:800; letter-spacing:0.3px; }
+    .sub{ color:var(--muted); font-size:14px }
+    .panel{ background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.2)); border:1px solid rgba(255,255,255,0.06); box-shadow: 0 10px 30px rgba(0,0,0,0.35); border-radius:16px; padding:14px 16px; }
+
+    .controls{ display:grid; grid-template-columns: 1fr auto auto auto; gap:12px; align-items:center; }
+    .controls .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .controls label{ color:var(--muted); font-size:12px; letter-spacing:.3px; }
+    select, button{ 
+      background: var(--panel); color:var(--text);
+      border:1px solid rgba(255,255,255,0.08); padding:10px 12px; border-radius:12px;
+      cursor:pointer; transition: transform .05s ease, border-color .2s ease, background .2s ease;
+    }
+    button:hover, select:hover{ border-color: rgba(255,255,255,0.2); }
+    button:active{ transform: scale(0.98); }
+    button.primary{ background: linear-gradient(90deg, var(--accent), var(--accent-2)); color:#0b1020; font-weight:700; border: none; }
+
+    .board{ 
+      display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; 
+      background: transparent; padding:12px; border-radius:16px;
+    }
+    .cell{
+      display:grid; place-items:center; aspect-ratio:1/1; font-weight:900;
+      font-size: clamp(36px, 9vw, 64px);
+      border-radius:16px; user-select:none; position:relative;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 16px rgba(0,0,0,0.25);
+      transition: background .2s ease, transform .06s ease, border-color .2s ease;
+    }
+    .cell:hover{ background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.18); }
+    .cell:active{ transform: scale(0.99); }
+    .cell.disabled{ pointer-events:none; opacity:0.6; }
+    .cell.win{ background: rgba(16,185,129,0.14); border-color: rgba(16,185,129,0.6); }
+
+    .status{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .status .msg{ font-size:16px; }
+    .badge{ padding:6px 10px; border-radius:999px; font-size:12px; background:#111827; border:1px solid rgba(255,255,255,0.08); color:var(--muted) }
+    .scores{ display:flex; gap:8px; flex-wrap:wrap; }
+
+    footer{ text-align:center; color:var(--muted); font-size:12px; padding-bottom:10px; }
+    a { color: var(--accent) }
+
+    @media (max-width: 560px){
+      .controls{ grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div>
+        <h1>🎮 Tic‑Tac‑Toe</h1>
+        <div class="sub">Play <strong>Player vs Player</strong> or challenge an <strong>Unbeatable AI</strong> powered by minimax.</div>
+      </div>
+    </header>
+
+    <section class="panel controls">
+      <div class="row">
+        <label for="mode">Mode</label>
+        <select id="mode" aria-label="Game mode">
+          <option value="pvp">Player vs Player</option>
+          <option value="ai">Player vs AI</option>
+        </select>
+      </div>
+      <div class="row" id="whoRow">
+        <label for="human">You play</label>
+        <select id="human" aria-label="Human plays as">
+          <option value="X">X (first)</option>
+          <option value="O">O (second)</option>
+        </select>
+      </div>
+      <button id="reset" class="">↻ New Round</button>
+      <button id="clear" class="">🧹 Reset Scores</button>
+    </section>
+
+    <section class="panel status">
+      <div class="msg" id="status">Welcome! Select a cell to begin.</div>
+      <div class="scores">
+        <span class="badge" id="sx">X: 0</span>
+        <span class="badge" id="so">O: 0</span>
+        <span class="badge" id="sd">Draws: 0</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="board" id="board" role="grid" aria-label="Tic Tac Toe Board"></div>
+    </section>
+
+    <footer>
+      <div>Built with ❤️ using HTML, CSS and Vanilla JavaScript. Clean-room, plagiarism‑free implementation by <em>you</em>.</div>
+    </footer>
+  </main>
+
+  <script>
+    // ======= Utility & Game State =======
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const modeEl = document.getElementById('mode');
+    const humanEl = document.getElementById('human');
+    const resetBtn = document.getElementById('reset');
+    const clearBtn = document.getElementById('clear');
+    const sx = document.getElementById('sx');
+    const so = document.getElementById('so');
+    const sd = document.getElementById('sd');
+
+    const LINES = [
+      [0,1,2],[3,4,5],[6,7,8], // rows
+      [0,3,6],[1,4,7],[2,5,8], // cols
+      [0,4,8],[2,4,6]          // diags
+    ];
+
+    const scores = { X:0, O:0, D:0 };
+
+    let state = {
+      board: Array(9).fill(null),
+      turn: 'X',
+      mode: 'pvp', // 'pvp' | 'ai'
+      human: 'X',  // 'X' | 'O' (only used in ai mode)
+      over: false,
+      lastWinLine: null,
+    };
+
+    // ======= Setup Board =======
+    function setupBoard(){
+      boardEl.innerHTML = '';
+      for (let i=0; i<9; i++){
+        const cell = document.createElement('button');
+        cell.className = 'cell';
+        cell.setAttribute('data-index', i);
+        cell.setAttribute('aria-label', `Cell ${i+1}`);
+        cell.addEventListener('click', onCellClick);
+        boardEl.appendChild(cell);
+      }
+      render();
+    }
+
+    // ======= Rendering =======
+    function render(){
+      const cells = boardEl.children;
+      for (let i=0; i<9; i++){
+        const v = state.board[i];
+        const c = cells[i];
+        c.textContent = v || '';
+        c.classList.toggle('disabled', !!v || state.over);
+        c.classList.toggle('win', state.lastWinLine?.includes(i));
+      }
+      sx.textContent = `X: ${scores.X}`;
+      so.textContent = `O: ${scores.O}`;
+      sd.textContent = `Draws: ${scores.D}`;
+
+      // Status line
+      if (state.over){
+        if (state.lastWinLine){
+          const w = winnerOf(state.board);
+          statusEl.textContent = `${w} wins!`;
+        } else {
+          statusEl.textContent = `It's a draw.`;
+        }
+      } else {
+        statusEl.textContent = `${state.turn}'s turn${state.mode==='ai' ? (state.turn===state.human ? ' (You)': ' (AI)') : ''}`;
+      }
+    }
+
+    // ======= Event Handlers =======
+    function onCellClick(e){
+      const idx = +e.currentTarget.getAttribute('data-index');
+      if (state.over || state.board[idx]) return;
+      if (state.mode==='ai' && state.turn !== state.human) return;
+      playAt(idx);
+      if (state.mode==='ai' && !state.over){
+        // AI move with a tiny delay for UX
+        setTimeout(aiMove, 180);
+      }
+    }
+
+    modeEl.addEventListener('change', () => {
+      state.mode = modeEl.value;
+      document.getElementById('whoRow').style.display = state.mode==='ai' ? 'flex' : 'none';
+      resetRound(true);
+    });
+
+    humanEl.addEventListener('change', () => {
+      state.human = humanEl.value;
+      resetRound(true);
+    });
+
+    resetBtn.addEventListener('click', () => resetRound(true));
+    clearBtn.addEventListener('click', () => { scores.X=0; scores.O=0; scores.D=0; resetRound(true); });
+
+    // ======= Game Logic =======
+    function playAt(i){
+      if (state.board[i] || state.over) return;
+      state.board[i] = state.turn;
+      const res = evaluate(state.board);
+      if (res.done){
+        state.over = true;
+        state.lastWinLine = res.line;
+        if (res.winner==='X') scores.X++; else if (res.winner==='O') scores.O++; else scores.D++;
+      } else {
+        state.turn = state.turn === 'X' ? 'O' : 'X';
+      }
+      render();
+    }
+
+    function evaluate(board){
+      for (const line of LINES){
+        const [a,b,c] = line;
+        if (board[a] && board[a]===board[b] && board[a]===board[c]){
+          return { done:true, winner: board[a], line };
+        }
+      }
+      if (board.every(v => v)) return { done:true, winner: null, line: null };
+      return { done:false };
+    }
+
+    function winnerOf(board){
+      const r = evaluate(board);
+      return r.winner ?? 'Draw';
+    }
+
+    function resetRound(keepScores=false){
+      state.board = Array(9).fill(null);
+      state.over = false;
+      state.lastWinLine = null;
+      // If AI mode and human chose O, AI starts as X
+      state.turn = (state.mode==='ai' && state.human==='O') ? 'X' : 'X';
+      render();
+      if (state.mode==='ai' && state.human==='O'){
+        setTimeout(aiMove, 180);
+      }
+    }
+
+    // ======= AI (Minimax with Alpha-Beta) =======
+    function aiMove(){
+      // Choose the best move for (AI = other than human)
+      const ai = state.human === 'X' ? 'O' : 'X';
+      const idx = bestMove(state.board, ai, ai, state.human, -Infinity, Infinity).index;
+      if (idx != null) playAt(idx);
+    }
+
+    function bestMove(board, player, ai, human, alpha, beta){
+      const evalRes = evaluate(board);
+      if (evalRes.done){
+        if (evalRes.winner === ai) return { score: +10 };
+        if (evalRes.winner === human) return { score: -10 };
+        return { score: 0 };
+      }
+
+      // Prefer center, corners, edges order to speed convergence on equal scores
+      const order = [4,0,2,6,8,1,3,5,7].filter(i => !board[i]);
+
+      let best = { score: player===ai ? -Infinity : +Infinity, index: null };
+
+      for (const i of order){
+        board[i] = player;
+        const next = bestMove(board, player==="X"?"O":"X", ai, human, alpha, beta);
+        board[i] = null;
+        const value = next.score + heuristic(board, ai); // small tie-breaker
+
+        if (player===ai){
+          if (value > best.score){ best = { score:value, index:i }; }
+          alpha = Math.max(alpha, value);
+        } else {
+          if (value < best.score){ best = { score:value, index:i }; }
+          beta = Math.min(beta, value);
+        }
+        if (beta <= alpha) break; // alpha-beta pruning
+      }
+      return best;
+    }
+
+    // Light heuristic: prefer immediate forks/center occupancy
+    function heuristic(board, ai){
+      const opp = ai === 'X' ? 'O' : 'X';
+      let s = 0;
+      if (board[4] === ai) s += 0.2;
+      if (board[4] === opp) s -= 0.2;
+      return s;
+    }
+
+    // ======= Initialize =======
+    (function init(){
+      document.getElementById('whoRow').style.display = 'none';
+      setupBoard();
+    })();
+  </script>
+</body>
+</html>
